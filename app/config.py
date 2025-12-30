@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     file_max_age_hours: int = 24
 
     # Google Gemini AI
-    gemini_api_key: str = "AIzaSyBlQ9isVooNQ9edxlofnYVvpl29pbT8bKw"
+    gemini_api_key: str
     gemini_model: str = "gemini-2.5-flash"
 
     class Config:
