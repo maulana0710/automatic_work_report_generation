@@ -1,8 +1,10 @@
+import re
 import markdown
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 from enum import Enum
+from datetime import datetime
 
 
 class CombineMode(str, Enum):
@@ -112,6 +114,107 @@ class MarkdownParser:
                 filenames.append(path.name)
 
         return self.combine_contents(contents, filenames, mode)
+
+
+    # Indonesian month names mapping
+    MONTH_MAP = {
+        'januari': 1, 'februari': 2, 'maret': 3, 'april': 4,
+        'mei': 5, 'juni': 6, 'juli': 7, 'agustus': 8,
+        'september': 9, 'oktober': 10, 'november': 11, 'desember': 12,
+        # English fallback
+        'january': 1, 'february': 2, 'march': 3, 'may': 5,
+        'june': 6, 'july': 7, 'august': 8, 'october': 10, 'december': 12,
+    }
+
+    def _parse_date_from_header(self, header: str) -> Optional[datetime]:
+        """
+        Parse date from a header like "## 22 Desember 2025" or "## 24 Desember 2025".
+        Returns datetime object or None if not a date header.
+        """
+        # Pattern: ## DD Month YYYY or # DD Month YYYY
+        pattern = r'#+ (\d{1,2})\s+(\w+)\s+(\d{4})'
+        match = re.search(pattern, header, re.IGNORECASE)
+
+        if match:
+            day = int(match.group(1))
+            month_name = match.group(2).lower()
+            year = int(match.group(3))
+
+            month = self.MONTH_MAP.get(month_name)
+            if month:
+                try:
+                    return datetime(year, month, day)
+                except ValueError:
+                    return None
+        return None
+
+    def _extract_sections_by_date(self, content: str) -> Tuple[List[str], List[Tuple[Optional[datetime], str, str]]]:
+        """
+        Extract sections from markdown based on date headers.
+        Returns list of (date, header_line, section_content) tuples.
+        """
+        lines = content.split('\n')
+        sections = []
+        current_header = None
+        current_date = None
+        current_lines = []
+        header_before_dates = []
+        found_first_date = False
+
+        for line in lines:
+            # Check if this is a date header (## or # followed by date)
+            if re.match(r'^#{1,2}\s+\d{1,2}\s+\w+\s+\d{4}', line):
+                # Save previous section if exists
+                if current_header is not None:
+                    sections.append((current_date, current_header, '\n'.join(current_lines)))
+
+                found_first_date = True
+                current_header = line
+                current_date = self._parse_date_from_header(line)
+                current_lines = []
+            elif not found_first_date:
+                # Content before any date header (like title, summary)
+                header_before_dates.append(line)
+            else:
+                current_lines.append(line)
+
+        # Don't forget the last section
+        if current_header is not None:
+            sections.append((current_date, current_header, '\n'.join(current_lines)))
+
+        return header_before_dates, sections
+
+    def sort_by_date(self, content: str) -> str:
+        """
+        Sort markdown content chronologically by date headers.
+        Dates are sorted from oldest to newest (e.g., 22 Dec → 23 Dec → 24 Dec).
+        """
+        header_before_dates, sections = self._extract_sections_by_date(content)
+
+        # If no date sections found, return original content
+        if not sections:
+            return content
+
+        # Sort sections by date (oldest first, None dates at the end)
+        sorted_sections = sorted(
+            sections,
+            key=lambda x: (x[0] is None, x[0] if x[0] else datetime.max)
+        )
+
+        # Rebuild the markdown
+        result_parts = []
+
+        # Add header content (title, summary, etc.) first
+        if header_before_dates:
+            result_parts.append('\n'.join(header_before_dates))
+
+        # Add sorted date sections
+        for date, header, section_content in sorted_sections:
+            result_parts.append(header)
+            if section_content.strip():
+                result_parts.append(section_content)
+
+        return '\n'.join(result_parts)
 
 
 # Singleton instance

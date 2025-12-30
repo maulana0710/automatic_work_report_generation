@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.file_manager import file_manager
 from app.core.image_manager import image_manager
-from app.api.routes import upload, templates, reports, preview, images
+from app.api.routes import upload, templates, reports, preview, images, ai
 
 
 @asynccontextmanager
@@ -49,6 +49,7 @@ app.include_router(images.router, prefix="/api")
 app.include_router(templates.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(preview.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")
 
 
 @app.get("/")

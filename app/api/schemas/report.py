@@ -13,7 +13,8 @@ class CombineModeEnum(str, Enum):
 
 class ReportVariablesRequest(BaseModel):
     """Request model for report variables."""
-    week_number: Optional[int] = None
+    start_date: Optional[str] = None  # Format: YYYY-MM-DD
+    end_date: Optional[str] = None    # Format: YYYY-MM-DD
     author_name: str = ""
     author_email: str = ""
     department: str = ""

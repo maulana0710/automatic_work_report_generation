@@ -87,6 +87,9 @@ class ReportService:
         # 3. Combine markdown files
         combined_md = markdown_parser.combine_files(file_paths, combine_mode)
 
+        # 3.5 Auto-sort by date (chronological order: oldest → newest)
+        combined_md = markdown_parser.sort_by_date(combined_md)
+
         # 4. Parse to HTML
         parsed = markdown_parser.parse(combined_md)
 
@@ -155,6 +158,10 @@ class ReportService:
 
         # Combine and parse markdown
         combined_md = markdown_parser.combine_files(file_paths, combine_mode)
+
+        # Auto-sort by date (chronological order: oldest → newest)
+        combined_md = markdown_parser.sort_by_date(combined_md)
+
         parsed = markdown_parser.parse(combined_md)
 
         # Render template

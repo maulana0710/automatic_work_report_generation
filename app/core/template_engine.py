@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import List, Optional
 from dataclasses import dataclass, field
@@ -19,7 +19,6 @@ class ImageInfo:
 @dataclass
 class ReportVariables:
     """Variables available in report templates."""
-    week_number: int = field(default_factory=lambda: date.today().isocalendar()[1])
     week_start_date: str = ""
     week_end_date: str = ""
     author_name: str = ""
@@ -33,24 +32,13 @@ class ReportVariables:
     images: List[ImageInfo] = field(default_factory=list)  # List of images to include
     next_week_plan: str = ""  # Rencana kerja minggu depan
 
-    def __post_init__(self):
-        if not self.week_start_date or not self.week_end_date:
-            self._calculate_week_dates()
-
-    def _calculate_week_dates(self):
-        """Calculate week start and end dates from week number."""
-        today = date.today()
-        year = today.year
-
-        try:
-            week_start = date.fromisocalendar(year, self.week_number, 1)
-        except ValueError:
-            week_start = date.fromisocalendar(year - 1, self.week_number, 1)
-
-        week_end = week_start + timedelta(days=4)  # Friday
-
-        self.week_start_date = week_start.strftime("%B %d, %Y")
-        self.week_end_date = week_end.strftime("%B %d, %Y")
+    def set_date_range(self, start_date: str, end_date: str):
+        """Set date range from provided dates (YYYY-MM-DD format)."""
+        from datetime import datetime
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        self.week_start_date = start.strftime("%B %d, %Y")
+        self.week_end_date = end.strftime("%B %d, %Y")
 
 
 @dataclass
@@ -91,7 +79,6 @@ class TemplateEngine:
         template = self.env.get_template(template_name)
 
         return template.render(
-            week_number=variables.week_number,
             week_start_date=variables.week_start_date,
             week_end_date=variables.week_end_date,
             author_name=variables.author_name,

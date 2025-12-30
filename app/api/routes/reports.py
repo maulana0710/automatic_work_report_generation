@@ -18,7 +18,6 @@ async def generate_report(request: GenerateReportRequest):
     try:
         # Convert request to domain objects
         variables = ReportVariables(
-            week_number=request.variables.week_number or 0,
             author_name=request.variables.author_name,
             author_email=request.variables.author_email,
             department=request.variables.department,
@@ -27,9 +26,12 @@ async def generate_report(request: GenerateReportRequest):
             next_week_plan=request.variables.next_week_plan,
         )
 
-        if request.variables.week_number:
-            variables.week_number = request.variables.week_number
-            variables._calculate_week_dates()
+        # Set date range if provided
+        if request.variables.start_date and request.variables.end_date:
+            variables.set_date_range(
+                request.variables.start_date,
+                request.variables.end_date
+            )
 
         combine_mode = CombineMode(request.combine_mode.value)
 

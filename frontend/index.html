@@ -152,6 +152,111 @@
             background-color: #545b62;
         }
 
+        .btn-ai {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .btn-ai:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+        }
+
+        .btn-ai:disabled {
+            background: #ccc;
+        }
+
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            background-color: #e9d5ff;
+            color: #7c3aed;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .ai-badge.not-configured {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+
+        /* AI Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b21a8;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .toggle-status {
+            font-size: 12px;
+            color: #666;
+            margin-left: 10px;
+        }
+
+        .toggle-status.active {
+            color: #7c3aed;
+            font-weight: 500;
+        }
+
         /* File List */
         .file-list {
             margin-top: 15px;
@@ -406,6 +511,22 @@
                     <div class="empty-state" x-show="files.length === 0">
                         No markdown files uploaded
                     </div>
+
+                    <!-- AI Toggle Switch -->
+                    <div class="toggle-container" x-show="aiConfigured">
+                        <div class="toggle-label">
+                            <span>🤖</span>
+                            <span>Process with AI</span>
+                            <span class="toggle-status" :class="{ 'active': useAI }" x-text="useAI ? 'ON' : 'OFF'"></span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" x-model="useAI">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <p style="font-size: 11px; color: #888; margin-top: 8px; text-align: center;" x-show="aiConfigured && useAI">
+                        Git log akan diproses dengan Gemini AI sebelum generate report
+                    </p>
                 </div>
 
                 <!-- Image Upload -->
@@ -459,17 +580,22 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Week Number</label>
-                            <input type="number" x-model="config.week_number" min="1" max="53">
+                            <label>Tanggal Mulai</label>
+                            <input type="date" x-model="config.start_date">
                         </div>
                         <div class="form-group">
-                            <label>Combine Mode</label>
-                            <select x-model="config.combine_mode">
-                                <option value="sequential">Sequential</option>
-                                <option value="sectioned">Sectioned</option>
-                                <option value="chaptered">Chaptered</option>
-                            </select>
+                            <label>Tanggal Selesai</label>
+                            <input type="date" x-model="config.end_date">
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Combine Mode</label>
+                        <select x-model="config.combine_mode">
+                            <option value="sequential">Sequential</option>
+                            <option value="sectioned">Sectioned</option>
+                            <option value="chaptered">Chaptered</option>
+                        </select>
                     </div>
 
                     <div class="form-row">
@@ -545,7 +671,8 @@ Contoh:
                 styles: [],
                 config: {
                     report_title: 'Weekly Work Report',
-                    week_number: new Date().getWeek(),
+                    start_date: new Date().toISOString().split('T')[0],
+                    end_date: new Date().toISOString().split('T')[0],
                     author_name: '',
                     author_email: '',
                     department: '',
@@ -561,12 +688,59 @@ Contoh:
                 loading: false,
                 dragover: false,
                 imageDragover: false,
+                aiConfigured: false,
+                aiLoading: false,
+                useAI: false,
 
                 async init() {
                     await this.loadTemplates();
                     await this.loadStyles();
                     await this.loadFiles();
                     await this.loadImages();
+                    await this.checkAIStatus();
+                },
+
+                async checkAIStatus() {
+                    try {
+                        const res = await fetch('/api/ai/status');
+                        const data = await res.json();
+                        this.aiConfigured = data.configured;
+                    } catch (e) {
+                        console.error('Failed to check AI status:', e);
+                        this.aiConfigured = false;
+                    }
+                },
+
+                async processWithAI() {
+                    if (this.files.length === 0) return false;
+
+                    this.aiLoading = true;
+                    try {
+                        const res = await fetch('/api/ai/process', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ file_id: this.files[0].file_id })
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            // Remove original file and add new processed file
+                            this.files = this.files.filter(f => f.file_id !== data.original_file_id);
+                            await this.loadFiles();
+                            this.showMessage('Git log processed with AI!', 'success');
+                            this.aiLoading = false;
+                            return true;
+                        } else {
+                            const error = await res.json();
+                            this.showMessage(error.detail || 'AI processing failed', 'error');
+                            this.aiLoading = false;
+                            return false;
+                        }
+                    } catch (e) {
+                        this.showMessage('Failed to process with AI: ' + e.message, 'error');
+                        this.aiLoading = false;
+                        return false;
+                    }
                 },
 
                 async loadTemplates() {
@@ -715,6 +889,16 @@ Contoh:
                     if (this.files.length === 0) return;
 
                     this.loading = true;
+
+                    // Process with AI first if enabled
+                    if (this.useAI && this.aiConfigured) {
+                        const aiSuccess = await this.processWithAI();
+                        if (!aiSuccess) {
+                            this.loading = false;
+                            return;
+                        }
+                    }
+
                     try {
                         const res = await fetch('/api/preview/html', {
                             method: 'POST',
@@ -738,6 +922,16 @@ Contoh:
                     if (this.files.length === 0) return;
 
                     this.loading = true;
+
+                    // Process with AI first if enabled
+                    if (this.useAI && this.aiConfigured) {
+                        const aiSuccess = await this.processWithAI();
+                        if (!aiSuccess) {
+                            this.loading = false;
+                            return;
+                        }
+                    }
+
                     try {
                         const res = await fetch('/api/reports/generate', {
                             method: 'POST',
@@ -748,8 +942,15 @@ Contoh:
                         if (res.ok) {
                             const data = await res.json();
                             this.showMessage('Report generated successfully!', 'success');
-                            // Download the PDF
-                            window.open(data.download_url, '_blank');
+                            // Download the PDF using anchor element
+                            const link = document.createElement('a');
+                            link.href = data.download_url;
+                            link.download = data.filename || 'report.pdf';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            // Reset upload after successful generation
+                            await this.resetUpload();
                         } else {
                             const error = await res.json();
                             this.showMessage(error.detail, 'error');
@@ -767,7 +968,8 @@ Contoh:
                         template_name: this.config.template_name,
                         css_files: this.config.css_files,
                         variables: {
-                            week_number: parseInt(this.config.week_number),
+                            start_date: this.config.start_date,
+                            end_date: this.config.end_date,
                             author_name: this.config.author_name,
                             author_email: this.config.author_email,
                             department: this.config.department,
@@ -827,6 +1029,30 @@ Contoh:
                     }, 5000);
                 },
 
+                async resetUpload() {
+                    // Delete all files from server
+                    for (const file of this.files) {
+                        try {
+                            await fetch(`/api/upload/${file.file_id}`, { method: 'DELETE' });
+                        } catch (e) {
+                            console.error('Failed to delete file:', e);
+                        }
+                    }
+                    // Delete all images from server
+                    for (const image of this.images) {
+                        try {
+                            await fetch(`/api/images/${image.image_id}`, { method: 'DELETE' });
+                        } catch (e) {
+                            console.error('Failed to delete image:', e);
+                        }
+                    }
+                    // Reset state
+                    this.files = [];
+                    this.images = [];
+                    this.previewHtml = '';
+                    this.useAI = false;
+                },
+
                 formatSize(bytes) {
                     if (bytes < 1024) return bytes + ' B';
                     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -834,15 +1060,6 @@ Contoh:
                 }
             };
         }
-
-        // Get current week number
-        Date.prototype.getWeek = function() {
-            const d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
-            const dayNum = d.getUTCDay() || 7;
-            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-        };
     </script>
 </body>
 </html>

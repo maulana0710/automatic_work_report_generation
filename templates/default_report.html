@@ -12,8 +12,7 @@
             <h1>{{ report_title }}</h1>
             <div class="report-meta">
                 <p class="week-info">
-                    <strong>Week {{ week_number }}</strong> |
-                    {{ week_start_date }} - {{ week_end_date }}
+                    <strong>Periode:</strong> {{ week_start_date }} - {{ week_end_date }}
                 </p>
                 {% if author_name %}
                 <p class="author-info">
@@ -26,9 +25,9 @@
                     <strong>Department:</strong> {{ department }}
                 </p>
                 {% endif %}
-                <p class="generated-info">
+                <!-- <p class="generated-info">
                     <strong>Generated:</strong> {{ generation_date }}
-                </p>
+                </p> -->
             </div>
         </header>
 
@@ -70,7 +69,7 @@
 
         <!-- Report Footer -->
         <footer class="report-footer">
-            <p>Weekly Work Report - Week {{ week_number }} | Generated on {{ generation_date }}</p>
+            <p>{{ report_title }} | Generated on {{ generation_date }}</p>
         </footer>
     </div>
 </body>
