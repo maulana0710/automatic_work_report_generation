@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Report Generator</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0066cc, #004999);
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+
+        /* Upload Area */
+        .upload-zone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: #0066cc;
+            background-color: #f0f7ff;
+        }
+
+        .upload-zone.image-zone:hover,
+        .upload-zone.image-zone.dragover {
+            border-color: #28a745;
+            background-color: #f0fff4;
+        }
+
+        .upload-zone p {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #0052a3;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        /* File List */
+        .file-list {
+            margin-top: 15px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .file-item .file-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-item .file-icon {
+            width: 32px;
+            height: 32px;
+            background-color: #0066cc;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .file-item .file-icon.image-icon {
+            background-color: #28a745;
+        }
+
+        .file-item .file-name {
+            font-weight: 500;
+        }
+
+        .file-item .file-title {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .file-item .file-size {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Image Preview */
+        .image-preview {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 2px rgba(0,102,204,0.1);
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+
+        .form-group .textarea-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input {
+            width: auto;
+        }
+
+        /* Preview Area */
+        .preview-area {
+            min-height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .preview-area iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+        }
+
+        .preview-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 13px;
+        }
+
+        .section-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" x-data="reportApp()">
+        <header>
+            <h1>Weekly Report Generator</h1>
+            <p>Generate professional PDF reports from your Markdown files with images</p>
+        </header>
+
+        <!-- Alert Messages -->
+        <template x-if="message">
+            <div :class="'alert alert-' + messageType" x-text="message" x-show="message"></div>
+        </template>
+
+        <div class="main-grid">
+            <!-- Left Column: Upload & Configuration -->
+            <div>
+                <!-- Markdown File Upload -->
+                <div class="card">
+                    <h2 class="card-title">Upload Markdown Files</h2>
+                    <div class="upload-zone"
+                         @click="$refs.fileInput.click()"
+                         @dragover.prevent="dragover = true"
+                         @dragleave.prevent="dragover = false"
+                         @drop.prevent="handleDrop($event)"
+                         :class="{ 'dragover': dragover }">
+                        <p>Drag & drop your .md files here</p>
+                        <p>or</p>
+                        <button class="btn" type="button">Select Files</button>
+                        <input type="file"
+                               x-ref="fileInput"
+                               @change="handleFileSelect($event)"
+                               accept=".md,.markdown"
+                               multiple>
+                    </div>
+
+                    <!-- File List -->
+                    <div class="file-list" x-show="files.length > 0">
+                        <template x-for="file in files" :key="file.file_id">
+                            <div class="file-item">
+                                <div class="file-info">
+                                    <div class="file-icon">MD</div>
+                                    <div>
+                                        <div class="file-name" x-text="file.original_name"></div>
+                                        <div class="file-size" x-text="formatSize(file.size)"></div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-danger" @click="removeFile(file.file_id)">Remove</button>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="empty-state" x-show="files.length === 0">
+                        No markdown files uploaded
+                    </div>
+                </div>
+
+                <!-- Image Upload -->
+                <div class="card">
+                    <h2 class="card-title">Upload Images (Optional)</h2>
+                    <p class="section-label">Image title will be extracted from filename</p>
+                    <div class="upload-zone image-zone"
+                         @click="$refs.imageInput.click()"
+                         @dragover.prevent="imageDragover = true"
+                         @dragleave.prevent="imageDragover = false"
+                         @drop.prevent="handleImageDrop($event)"
+                         :class="{ 'dragover': imageDragover }">
+                        <p>Drag & drop your images here</p>
+                        <p>or</p>
+                        <button class="btn btn-success" type="button">Select Images</button>
+                        <input type="file"
+                               x-ref="imageInput"
+                               @change="handleImageSelect($event)"
+                               accept=".png,.jpg,.jpeg,.gif,.webp"
+                               multiple>
+                    </div>
+
+                    <!-- Image List -->
+                    <div class="file-list" x-show="images.length > 0">
+                        <template x-for="image in images" :key="image.image_id">
+                            <div class="file-item">
+                                <div class="file-info">
+                                    <img :src="image.url" class="image-preview" :alt="image.title">
+                                    <div>
+                                        <div class="file-name" x-text="image.title"></div>
+                                        <div class="file-title" x-text="image.original_name"></div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-danger" @click="removeImage(image.image_id)">Remove</button>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="empty-state" x-show="images.length === 0">
+                        No images uploaded (images will appear in "Lampiran Gambar" section)
+                    </div>
+                </div>
+
+                <!-- Report Configuration -->
+                <div class="card">
+                    <h2 class="card-title">Report Configuration</h2>
+
+                    <div class="form-group">
+                        <label>Report Title</label>
+                        <input type="text" x-model="config.report_title" placeholder="Weekly Work Report">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Week Number</label>
+                            <input type="number" x-model="config.week_number" min="1" max="53">
+                        </div>
+                        <div class="form-group">
+                            <label>Combine Mode</label>
+                            <select x-model="config.combine_mode">
+                                <option value="sequential">Sequential</option>
+                                <option value="sectioned">Sectioned</option>
+                                <option value="chaptered">Chaptered</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Author Name</label>
+                            <input type="text" x-model="config.author_name" placeholder="Your Name">
+                        </div>
+                        <div class="form-group">
+                            <label>Department</label>
+                            <input type="text" x-model="config.department" placeholder="Engineering">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Author Email</label>
+                        <input type="email" x-model="config.author_email" placeholder="email@example.com">
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="showToc" x-model="config.show_toc">
+                        <label for="showToc">Show Table of Contents</label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Rencana Kerja Minggu Depan (Optional)</label>
+                        <textarea
+                            x-model="config.next_week_plan"
+                            placeholder="Tuliskan rencana kerja untuk minggu depan...
+
+Contoh:
+- Melanjutkan development fitur X
+- Code review untuk PR #123
+- Meeting dengan tim untuk sprint planning"></textarea>
+                        <p class="textarea-hint">Gunakan format Markdown: gunakan "-" untuk bullet list</p>
+                    </div>
+
+                    <div class="actions">
+                        <button class="btn" @click="previewReport()" :disabled="files.length === 0 || loading">
+                            <span x-show="!loading">Preview HTML</span>
+                            <span x-show="loading" class="loading"></span>
+                        </button>
+                        <button class="btn btn-success" @click="generateReport()" :disabled="files.length === 0 || loading">
+                            <span x-show="!loading">Generate PDF</span>
+                            <span x-show="loading" class="loading"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Preview -->
+            <div class="card" style="margin-bottom: 0;">
+                <h2 class="card-title">Preview</h2>
+                <div class="preview-area">
+                    <template x-if="previewHtml">
+                        <iframe :srcdoc="previewHtml"></iframe>
+                    </template>
+                    <template x-if="!previewHtml">
+                        <div class="preview-placeholder">
+                            Upload files and click "Preview HTML" to see your report
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function reportApp() {
+            return {
+                files: [],
+                images: [],
+                templates: [],
+                styles: [],
+                config: {
+                    report_title: 'Weekly Work Report',
+                    week_number: new Date().getWeek(),
+                    author_name: '',
+                    author_email: '',
+                    department: '',
+                    show_toc: true,
+                    next_week_plan: '',
+                    template_name: 'default_report.html',
+                    css_files: ['default.css'],
+                    combine_mode: 'sequential'
+                },
+                previewHtml: '',
+                message: '',
+                messageType: 'success',
+                loading: false,
+                dragover: false,
+                imageDragover: false,
+
+                async init() {
+                    await this.loadTemplates();
+                    await this.loadStyles();
+                    await this.loadFiles();
+                    await this.loadImages();
+                },
+
+                async loadTemplates() {
+                    try {
+                        const res = await fetch('/api/templates');
+                        const data = await res.json();
+                        this.templates = data.templates;
+                    } catch (e) {
+                        console.error('Failed to load templates:', e);
+                    }
+                },
+
+                async loadStyles() {
+                    try {
+                        const res = await fetch('/api/templates/styles');
+                        const data = await res.json();
+                        this.styles = data.styles;
+                    } catch (e) {
+                        console.error('Failed to load styles:', e);
+                    }
+                },
+
+                async loadFiles() {
+                    try {
+                        const res = await fetch('/api/upload');
+                        const data = await res.json();
+                        this.files = data.files;
+                    } catch (e) {
+                        console.error('Failed to load files:', e);
+                    }
+                },
+
+                async loadImages() {
+                    try {
+                        const res = await fetch('/api/images');
+                        const data = await res.json();
+                        this.images = data.images;
+                    } catch (e) {
+                        console.error('Failed to load images:', e);
+                    }
+                },
+
+                async handleFileSelect(event) {
+                    const files = event.target.files;
+                    await this.uploadFiles(files);
+                },
+
+                async handleDrop(event) {
+                    this.dragover = false;
+                    const files = event.dataTransfer.files;
+                    await this.uploadFiles(files);
+                },
+
+                async handleImageSelect(event) {
+                    const files = event.target.files;
+                    await this.uploadImages(files);
+                },
+
+                async handleImageDrop(event) {
+                    this.imageDragover = false;
+                    const files = event.dataTransfer.files;
+                    await this.uploadImages(files);
+                },
+
+                async uploadFiles(fileList) {
+                    const formData = new FormData();
+                    for (const file of fileList) {
+                        formData.append('files', file);
+                    }
+
+                    try {
+                        const res = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.files = [...this.files, ...data.files];
+                            this.showMessage(data.message, 'success');
+                        } else {
+                            const error = await res.json();
+                            this.showMessage(error.detail, 'error');
+                        }
+                    } catch (e) {
+                        this.showMessage('Failed to upload files', 'error');
+                    }
+                },
+
+                async uploadImages(fileList) {
+                    const formData = new FormData();
+                    for (const file of fileList) {
+                        formData.append('files', file);
+                    }
+
+                    try {
+                        const res = await fetch('/api/images', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.images = [...this.images, ...data.images];
+                            this.showMessage(data.message, 'success');
+                        } else {
+                            const error = await res.json();
+                            this.showMessage(error.detail, 'error');
+                        }
+                    } catch (e) {
+                        this.showMessage('Failed to upload images', 'error');
+                    }
+                },
+
+                async removeFile(fileId) {
+                    try {
+                        const res = await fetch(`/api/upload/${fileId}`, {
+                            method: 'DELETE'
+                        });
+
+                        if (res.ok) {
+                            this.files = this.files.filter(f => f.file_id !== fileId);
+                            this.showMessage('File removed', 'success');
+                        }
+                    } catch (e) {
+                        this.showMessage('Failed to remove file', 'error');
+                    }
+                },
+
+                async removeImage(imageId) {
+                    try {
+                        const res = await fetch(`/api/images/${imageId}`, {
+                            method: 'DELETE'
+                        });
+
+                        if (res.ok) {
+                            this.images = this.images.filter(i => i.image_id !== imageId);
+                            this.showMessage('Image removed', 'success');
+                        }
+                    } catch (e) {
+                        this.showMessage('Failed to remove image', 'error');
+                    }
+                },
+
+                async previewReport() {
+                    if (this.files.length === 0) return;
+
+                    this.loading = true;
+                    try {
+                        const res = await fetch('/api/preview/html', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.getRequestPayload())
+                        });
+
+                        if (res.ok) {
+                            this.previewHtml = await res.text();
+                        } else {
+                            const error = await res.json();
+                            this.showMessage(error.detail, 'error');
+                        }
+                    } catch (e) {
+                        this.showMessage('Failed to generate preview', 'error');
+                    }
+                    this.loading = false;
+                },
+
+                async generateReport() {
+                    if (this.files.length === 0) return;
+
+                    this.loading = true;
+                    try {
+                        const res = await fetch('/api/reports/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.getRequestPayload())
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.showMessage('Report generated successfully!', 'success');
+                            // Download the PDF
+                            window.open(data.download_url, '_blank');
+                        } else {
+                            const error = await res.json();
+                            this.showMessage(error.detail, 'error');
+                        }
+                    } catch (e) {
+                        this.showMessage('Failed to generate report', 'error');
+                    }
+                    this.loading = false;
+                },
+
+                getRequestPayload() {
+                    return {
+                        file_ids: this.files.map(f => f.file_id),
+                        image_ids: this.images.map(i => i.image_id),
+                        template_name: this.config.template_name,
+                        css_files: this.config.css_files,
+                        variables: {
+                            week_number: parseInt(this.config.week_number),
+                            author_name: this.config.author_name,
+                            author_email: this.config.author_email,
+                            department: this.config.department,
+                            report_title: this.config.report_title,
+                            show_toc: this.config.show_toc,
+                            next_week_plan: this.formatNextWeekPlan(this.config.next_week_plan)
+                        },
+                        combine_mode: this.config.combine_mode
+                    };
+                },
+
+                formatNextWeekPlan(text) {
+                    if (!text.trim()) return '';
+
+                    // Convert markdown-like list to HTML
+                    const lines = text.split('\n');
+                    let html = '';
+                    let inList = false;
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                            if (!inList) {
+                                html += '<ul>';
+                                inList = true;
+                            }
+                            html += `<li>${trimmed.substring(2)}</li>`;
+                        } else if (trimmed.match(/^\d+\.\s/)) {
+                            if (!inList) {
+                                html += '<ol>';
+                                inList = true;
+                            }
+                            html += `<li>${trimmed.replace(/^\d+\.\s/, '')}</li>`;
+                        } else {
+                            if (inList) {
+                                html += inList === true ? '</ul>' : '</ol>';
+                                inList = false;
+                            }
+                            if (trimmed) {
+                                html += `<p>${trimmed}</p>`;
+                            }
+                        }
+                    }
+
+                    if (inList) {
+                        html += '</ul>';
+                    }
+
+                    return html;
+                },
+
+                showMessage(msg, type) {
+                    this.message = msg;
+                    this.messageType = type;
+                    setTimeout(() => {
+                        this.message = '';
+                    }, 5000);
+                },
+
+                formatSize(bytes) {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                }
+            };
+        }
+
+        // Get current week number
+        Date.prototype.getWeek = function() {
+            const d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }}</title>
+</head>
+<body>
+    <div class="report-container">
+        <!-- Report Header -->
+        <header class="report-header">
+            <h1>{{ report_title }}</h1>
+            <div class="report-meta">
+                <p class="week-info">
+                    <strong>Week {{ week_number }}</strong> |
+                    {{ week_start_date }} - {{ week_end_date }}
+                </p>
+                {% if author_name %}
+                <p class="author-info">
+                    <strong>Author:</strong> {{ author_name }}
+                    {% if author_email %}({{ author_email }}){% endif %}
+                </p>
+                {% endif %}
+                {% if department %}
+                <p class="department-info">
+                    <strong>Department:</strong> {{ department }}
+                </p>
+                {% endif %}
+                <p class="generated-info">
+                    <strong>Generated:</strong> {{ generation_date }}
+                </p>
+            </div>
+        </header>
+
+        <!-- Table of Contents -->
+        {% if show_toc and toc %}
+        <nav class="table-of-contents">
+            <h2>Table of Contents</h2>
+            {{ toc | safe }}
+        </nav>
+        {% endif %}
+
+        <!-- Report Content -->
+        <main class="report-content">
+            {{ content | safe }}
+        </main>
+
+        <!-- Images Section -->
+        {% if images %}
+        <section class="report-images">
+            <h2>Lampiran Gambar</h2>
+            {% for image in images %}
+            <figure class="image-figure">
+                <img src="{{ image.file_path }}" alt="{{ image.title }}">
+                <figcaption>{{ image.title }}</figcaption>
+            </figure>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <!-- Next Week Plan Section -->
+        {% if next_week_plan %}
+        <section class="next-week-plan">
+            <h2>Rencana Kerja Minggu Depan</h2>
+            <div class="plan-content">
+                {{ next_week_plan | safe }}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Report Footer -->
+        <footer class="report-footer">
+            <p>Weekly Work Report - Week {{ week_number }} | Generated on {{ generation_date }}</p>
+        </footer>
+    </div>
+</body>
+</html>
