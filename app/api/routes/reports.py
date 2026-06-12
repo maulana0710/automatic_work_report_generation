@@ -7,6 +7,7 @@ from app.services.report_service import report_service
 from app.api.schemas.report import (
     GenerateReportRequest,
     GeneratedReportResponse,
+    MODE_PRESETS,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -34,14 +35,17 @@ async def generate_report(request: GenerateReportRequest):
             )
 
         combine_mode = CombineMode(request.combine_mode.value)
+        preset = MODE_PRESETS[request.report_mode]
 
         report = report_service.generate_report(
             file_ids=request.file_ids,
             image_ids=request.image_ids,
-            template_name=request.template_name,
-            css_files=request.css_files,
+            template_name=preset["template_name"],
+            css_files=preset["css_files"],
             variables=variables,
             combine_mode=combine_mode,
+            sort_dates=preset["sort_dates"],
+            with_caption=preset["with_caption"],
         )
 
         return GeneratedReportResponse(

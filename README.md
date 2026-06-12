@@ -32,17 +32,25 @@ Aplikasi web untuk menghasilkan laporan pekerjaan mingguan dalam format PDF dari
 ### Prasyarat
 
 - Python 3.10+ (ARM64 untuk Apple Silicon)
-- Homebrew (untuk macOS)
+- System dependency untuk WeasyPrint:
+  - **macOS:** Homebrew + Pango
+  - **Windows:** GTK3 Runtime (lihat langkah di bawah)
 - Google Gemini API Key (opsional, untuk fitur AI)
 
-### Langkah Instalasi
+> **Catatan WeasyPrint:** WeasyPrint membutuhkan library native (Pango, Cairo, GDK-PixBuf).
+> `pip install` saja **tidak cukup** — jika library native belum terpasang, aplikasi akan
+> gagal start saat meng-import WeasyPrint.
 
-1. **Clone repository**
+---
+
+### Instalasi di macOS
+
+1. **Masuk ke folder project**
    ```bash
    cd automatic_work_report_generation
    ```
 
-2. **Install system dependencies (macOS)**
+2. **Install system dependencies**
    ```bash
    brew install pango
    ```
@@ -61,18 +69,82 @@ Aplikasi web untuk menghasilkan laporan pekerjaan mingguan dalam format PDF dari
 5. **Setup environment variables**
    ```bash
    cp .env.example .env
-   # Edit .env dan tambahkan GEMINI_API_KEY jika ingin menggunakan fitur AI
+   # Edit .env dan tambahkan GEMINI_API_KEY jika ingin menggunakan fitur AI (opsional)
    ```
 
 6. **Jalankan aplikasi**
    ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
    ```
+
+   > **Jika muncul error `cannot load library 'libgobject-2.0-0'`** (umum di Mac
+   > dengan Python dari python.org / Apple Silicon): Python tidak otomatis mencari
+   > library Homebrew. Jalankan dengan prefix env berikut:
+   > ```bash
+   > DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+   > ```
+   > Agar permanen, tambahkan ke `~/.zshrc`:
+   > ```bash
+   > export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+   > ```
+   > (Pada Mac Intel, lib Homebrew ada di `/usr/local/lib`.)
 
 7. **Buka di browser**
    ```
    http://localhost:8000
    ```
+
+---
+
+### Instalasi di Windows
+
+1. **Install GTK3 Runtime (WAJIB untuk WeasyPrint)**
+
+   WeasyPrint di Windows membutuhkan GTK3 Runtime. Tanpa ini aplikasi tidak bisa jalan.
+
+   - Download installer dari [GTK-for-Windows-Runtime-Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Installer/releases) (file `gtk3-runtime-*-x64.exe`).
+   - Jalankan installer, dan **centang opsi "Set up PATH environment variable"** agar GTK masuk ke PATH.
+   - **Restart terminal / PowerShell** setelah instalasi agar PATH ter-update.
+
+   > Alternatif: jika menggunakan MSYS2, jalankan `pacman -S mingw-w64-x86_64-pango`.
+
+2. **Masuk ke folder project** (PowerShell atau Command Prompt)
+   ```powershell
+   cd automatic_work_report_generation
+   ```
+
+3. **Buat virtual environment**
+   ```powershell
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+   > Jika muncul error eksekusi script di PowerShell, jalankan sekali:
+   > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+4. **Install Python dependencies**
+   ```powershell
+   pip install -r requirements.txt
+   ```
+
+5. **Setup environment variables**
+   ```powershell
+   copy .env.example .env
+   # Edit .env dan tambahkan GEMINI_API_KEY jika ingin menggunakan fitur AI (opsional)
+   ```
+
+6. **Jalankan aplikasi**
+   ```powershell
+   uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+   ```
+   > Saat pertama kali dijalankan, Windows Firewall mungkin meminta izin akses jaringan — pilih **Allow**.
+
+7. **Buka di browser**
+   ```
+   http://localhost:8000
+   ```
+
+> **Fitur AI bersifat opsional.** Aplikasi tetap berjalan normal tanpa `GEMINI_API_KEY`;
+> fitur "Use AI Processing" otomatis non-aktif jika API key tidak diisi.
 
 ## Penggunaan
 
@@ -345,6 +417,88 @@ def calculate_metrics():
 - Start mobile app integration
 ```
 
+## Struktur Markdown yang Direkomendasikan
+
+Untuk **Laporan Mingguan**, struktur berikut menghasilkan PDF yang rapi dan mudah dibaca.
+Contoh lengkap ada di [`examples/Laporan_Mingguan_2-6_JUN_2026.md`](examples/Laporan_Mingguan_2-6_JUN_2026.md).
+
+**Konvensi nama file:** `Laporan_Mingguan_2-6_JUN_2026.md` — sertakan rentang tanggal & periode agar mudah ditelusuri.
+
+```markdown
+# Laporan Mingguan
+**Periode: 2 – 6 Juni 2026**
+
+---
+
+## Ringkasan Umum
+
+Paragraf singkat berisi gambaran besar pekerjaan minggu ini.
+
+---
+
+## Detail Pekerjaan
+
+### Selasa, 2 Juni 2026
+
+**Frontend - Omnichannel (Web)**
+- Perbaikan cetak label yang rusak saat part number terlalu panjang
+
+**Backend - Omnichannel**
+- Penambahan cron job auto selesai pesanan
+- Penambahan notifikasi perubahan status
+
+---
+
+### Rabu, 3 Juni 2026
+
+**Frontend - Omnichannel (Web)**
+- Perbaikan filter di halaman list penjualan
+
+**Backend - Omnichannel**
+- Penambahan unit test dan dokumentasi
+
+---
+
+## Rekap Pekerjaan
+
+| Kategori | Jumlah Item |
+|---|---|
+| Penambahan Fitur | 14 |
+| Perbaikan Bug / Logic | 8 |
+| Perubahan Logic / UI | 5 |
+| **Total** | **27** |
+```
+
+**Kenapa struktur ini bagus:**
+- **Judul + Periode** di awal → jelas konteks laporan.
+- **Ringkasan Umum** → pembaca paham gambaran besar tanpa baca semua detail.
+- **Detail per hari** dikelompokkan per platform/kategori dengan label tebal (`**...**`).
+- **Tabel Rekap** di akhir → ringkasan kuantitatif yang gampang dibaca.
+- **`---`** sebagai pemisah antar bagian → tampil sebagai garis horizontal di PDF.
+
+> **Tips auto-sort tanggal:** fitur auto-sort hanya mengenali header dengan format
+> **`## D Bulan YYYY`** (angka tepat setelah `#`/`##`, mis. `## 2 Juni 2026`).
+> Header deskriptif seperti `### Selasa, 2 Juni 2026` **tidak** ikut diurutkan otomatis —
+> jadi pastikan kamu menulis harinya sudah berurutan, atau pakai format `## 2 Juni 2026`
+> kalau ingin app yang mengurutkan.
+
+> **Menyisipkan gambar:** gunakan `![Keterangan gambar](nama_file.png)` di posisi yang diinginkan,
+> lalu **upload gambarnya lewat "Upload Images"** dengan **nama file yang sama**. Cocok untuk
+> mode **Laporan Update Aplikasi** (gambar tampil inline beserta caption).
+
+### Tools untuk Menulis & Preview Markdown
+
+Untuk menulis dan melihat preview file `.md` dengan nyaman, gunakan **VS Code** + ekstensi
+**[Markdown Preview Enhanced](https://marketplace.visualstudio.com/items?itemName=shd101wyy.markdown-preview-enhanced)**:
+
+- Install lewat tab Extensions di VS Code (cari "Markdown Preview Enhanced") atau jalankan:
+  ```bash
+  code --install-extension shd101wyy.markdown-preview-enhanced
+  ```
+- Buka file `.md`, lalu tekan **`Ctrl/Cmd + K`** diikuti **`V`** untuk membuka preview berdampingan.
+- Preview-nya mendukung tabel, gambar, dan diagram — jadi kamu bisa cek tampilan laporan
+  sebelum di-generate ke PDF.
+
 ## Environment Variables
 
 | Variable | Deskripsi | Default |
@@ -398,10 +552,16 @@ h1 {
 
 ### WeasyPrint Error: cannot load library
 
-Pastikan Pango terinstall:
+**macOS** — pastikan Pango terinstall:
 ```bash
 brew install pango
 ```
+
+**Windows** — error seperti `cannot load library 'libgobject-2.0-0'` atau `OSError: ... libpango`
+berarti GTK3 Runtime belum terpasang atau belum masuk PATH:
+- Install [GTK3 Runtime](https://github.com/tschoonj/GTK-for-Windows-Runtime-Installer/releases) dengan opsi "Set up PATH" dicentang.
+- **Restart terminal** setelah instalasi.
+- Pastikan menjalankan Python versi 64-bit (cocokkan dengan GTK 64-bit).
 
 ### Architecture Mismatch (Apple Silicon)
 

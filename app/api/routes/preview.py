@@ -5,7 +5,7 @@ from io import BytesIO
 from app.core.markdown_parser import CombineMode
 from app.core.template_engine import ReportVariables
 from app.services.report_service import report_service
-from app.api.schemas.report import PreviewRequest
+from app.api.schemas.report import PreviewRequest, MODE_PRESETS
 
 router = APIRouter(prefix="/preview", tags=["preview"])
 
@@ -31,13 +31,16 @@ async def preview_html(request: PreviewRequest):
             )
 
         combine_mode = CombineMode(request.combine_mode.value)
+        preset = MODE_PRESETS[request.report_mode]
 
         html = report_service.generate_preview_html(
             file_ids=request.file_ids,
             image_ids=request.image_ids,
-            template_name=request.template_name,
+            template_name=preset["template_name"],
             variables=variables,
             combine_mode=combine_mode,
+            sort_dates=preset["sort_dates"],
+            with_caption=preset["with_caption"],
         )
 
         return HTMLResponse(content=html)
@@ -69,14 +72,17 @@ async def preview_pdf(request: PreviewRequest):
             )
 
         combine_mode = CombineMode(request.combine_mode.value)
+        preset = MODE_PRESETS[request.report_mode]
 
         pdf_bytes = report_service.generate_preview_pdf(
             file_ids=request.file_ids,
             image_ids=request.image_ids,
-            template_name=request.template_name,
-            css_files=request.css_files,
+            template_name=preset["template_name"],
+            css_files=preset["css_files"],
             variables=variables,
             combine_mode=combine_mode,
+            sort_dates=preset["sort_dates"],
+            with_caption=preset["with_caption"],
         )
 
         return StreamingResponse(

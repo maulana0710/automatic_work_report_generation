@@ -15,6 +15,10 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     print(f"Starting {settings.app_name}...")
+    # Sweep stale uploads on boot (TTL = settings.file_max_age_hours)
+    startup_files = file_manager.cleanup_old_files()
+    startup_images = image_manager.cleanup_old_images()
+    print(f"Startup cleanup: removed {startup_files} old file(s) and {startup_images} old image(s)")
     yield
     # Shutdown
     print("Cleaning up old files...")

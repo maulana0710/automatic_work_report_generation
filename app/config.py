@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     # Cleanup
     file_max_age_hours: int = 24
 
-    # Google Gemini AI
-    gemini_api_key: str
+    # Google Gemini AI (optional - leave empty to disable AI features)
+    gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
     class Config:

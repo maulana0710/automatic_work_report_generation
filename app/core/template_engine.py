@@ -24,7 +24,7 @@ class ReportVariables:
     author_name: str = ""
     author_email: str = ""
     department: str = ""
-    report_title: str = "Weekly Work Report"
+    report_title: str = "Laporan Logbook Mingguan"
     generation_date: str = field(default_factory=lambda: date.today().strftime("%B %d, %Y"))
     content: str = ""
     toc: str = ""

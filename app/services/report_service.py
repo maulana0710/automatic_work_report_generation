@@ -1,7 +1,9 @@
+import re
 import uuid
+import html as html_lib
 from pathlib import Path
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 from dataclasses import dataclass
 
 from app.config import settings
@@ -29,10 +31,71 @@ class ReportService:
         self.output_dir = settings.output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def _load_images(self, image_ids: List[str]) -> List[ImageInfo]:
-        """Load image information for the given image IDs."""
+    _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+    _SRC_RE = re.compile(r'src\s*=\s*"([^"]*)"', re.IGNORECASE)
+    _ALT_RE = re.compile(r'alt\s*=\s*"([^"]*)"', re.IGNORECASE)
+
+    def _process_inline_images(
+        self,
+        html: str,
+        for_pdf: bool,
+        with_caption: bool,
+    ) -> Tuple[str, Set[str]]:
+        """
+        Rewrite inline <img> tags in parsed markdown HTML so they point at
+        uploaded images (matched by sanitized filename). Returns the processed
+        HTML and the set of matched image IDs (so they can be skipped in the
+        "Lampiran Gambar" section).
+
+        - for_pdf=True   -> src becomes an absolute filesystem path (WeasyPrint).
+        - for_pdf=False  -> src becomes a /uploads/images/<name> URL (browser preview).
+        - with_caption   -> wrap matched images in <figure> with the alt as caption.
+        - Unmatched images become a visible "[Gambar tidak ditemukan: ...]" marker.
+        """
+        matched_ids: Set[str] = set()
+
+        def replace(match: "re.Match") -> str:
+            tag = match.group(0)
+            src_m = self._SRC_RE.search(tag)
+            if not src_m:
+                return tag
+            src = src_m.group(1)
+
+            alt_m = self._ALT_RE.search(tag)
+            alt = alt_m.group(1) if alt_m else ""
+
+            path = image_manager.resolve_by_filename(src)
+            if path is None:
+                basename = Path(src).name
+                return (
+                    f'<p class="img-missing">[Gambar tidak ditemukan: '
+                    f'{html_lib.escape(basename)}]</p>'
+                )
+
+            matched_ids.add(path.stem)
+            # PDF: file:// URI (cross-platform, valid on Windows C:\ paths too).
+            # Preview: served URL via the /uploads/images static mount.
+            new_src = path.absolute().as_uri() if for_pdf else f"/uploads/images/{path.name}"
+            new_img = f'<img src="{html_lib.escape(new_src)}" alt="{html_lib.escape(alt)}">'
+
+            if with_caption and alt:
+                return (
+                    f'<figure class="inline-figure">{new_img}'
+                    f"<figcaption>{html_lib.escape(alt)}</figcaption></figure>"
+                )
+            return new_img
+
+        return self._IMG_TAG_RE.sub(replace, html), matched_ids
+
+    def _load_images(
+        self, image_ids: List[str], exclude_ids: Optional[Set[str]] = None
+    ) -> List[ImageInfo]:
+        """Load image info for the given IDs, skipping any already shown inline."""
+        exclude_ids = exclude_ids or set()
         images = []
         for image_id in image_ids:
+            if image_id in exclude_ids:
+                continue
             path = image_manager.get_image_path(image_id)
             if path and path.exists():
                 # Get metadata from image_manager's list
@@ -43,7 +106,7 @@ class ReportService:
                             image_id=img.image_id,
                             title=img.title,
                             url=image_manager.get_image_url(image_id),
-                            file_path=str(path.absolute()),
+                            file_path=path.absolute().as_uri(),
                         ))
                         break
         return images
@@ -56,11 +119,13 @@ class ReportService:
         css_files: Optional[List[str]] = None,
         variables: Optional[ReportVariables] = None,
         combine_mode: CombineMode = CombineMode.SEQUENTIAL,
+        sort_dates: bool = True,
+        with_caption: bool = False,
     ) -> GeneratedReport:
         """
         Generate a PDF report from uploaded markdown files.
 
-        Pipeline: MD files -> Combine -> Parse -> Template -> PDF
+        Pipeline: MD files -> Combine -> Parse -> Inline images -> Template -> PDF
         """
         if css_files is None:
             css_files = ["default.css"]
@@ -81,27 +146,31 @@ class ReportService:
         if not file_paths:
             raise ValueError("No valid files found for the provided file IDs")
 
-        # 2. Load images
-        variables.images = self._load_images(image_ids)
-
-        # 3. Combine markdown files
+        # 2. Combine markdown files
         combined_md = markdown_parser.combine_files(file_paths, combine_mode)
 
-        # 3.5 Auto-sort by date (chronological order: oldest → newest)
-        combined_md = markdown_parser.sort_by_date(combined_md)
+        # 2.5 Auto-sort by date (chronological order: oldest → newest)
+        if sort_dates:
+            combined_md = markdown_parser.sort_by_date(combined_md)
 
-        # 4. Parse to HTML
+        # 3. Parse to HTML
         parsed = markdown_parser.parse(combined_md)
 
-        # 5. Render template with variables
+        # 3.5 Resolve inline images; exclude matched ones from the gallery section
+        content_html, matched_ids = self._process_inline_images(
+            parsed.html, for_pdf=True, with_caption=with_caption
+        )
+        variables.images = self._load_images(image_ids, exclude_ids=matched_ids)
+
+        # 4. Render template with variables
         html_content = template_engine.render_report(
             template_name=template_name,
-            content=parsed.html,
+            content=content_html,
             toc=parsed.toc,
             variables=variables,
         )
 
-        # 6. Generate PDF
+        # 5. Generate PDF
         report_id = str(uuid.uuid4())
         safe_title = "".join(
             c if c.isalnum() or c in "- _" else "_"
@@ -110,8 +179,8 @@ class ReportService:
         filename = f"{safe_title}_{report_id[:8]}.pdf"
         output_path = self.output_dir / filename
 
-        # Use base_url for resolving images
-        base_url = str(settings.base_dir.absolute())
+        # Use base_url for resolving images (file:// URI works on all OSes)
+        base_url = settings.base_dir.absolute().as_uri() + "/"
 
         pdf_generator.generate(
             html_content=html_content,
@@ -135,8 +204,15 @@ class ReportService:
         template_name: str = "default_report.html",
         variables: Optional[ReportVariables] = None,
         combine_mode: CombineMode = CombineMode.SEQUENTIAL,
+        sort_dates: bool = True,
+        with_caption: bool = False,
+        for_pdf: bool = False,
     ) -> str:
-        """Generate HTML preview without creating PDF."""
+        """Generate HTML preview without creating PDF.
+
+        for_pdf=False rewrites inline images to /uploads/images URLs (browser),
+        for_pdf=True rewrites them to absolute paths (WeasyPrint).
+        """
         if image_ids is None:
             image_ids = []
 
@@ -153,21 +229,25 @@ class ReportService:
         if not file_paths:
             raise ValueError("No valid files found")
 
-        # Load images
-        variables.images = self._load_images(image_ids)
-
         # Combine and parse markdown
         combined_md = markdown_parser.combine_files(file_paths, combine_mode)
 
         # Auto-sort by date (chronological order: oldest → newest)
-        combined_md = markdown_parser.sort_by_date(combined_md)
+        if sort_dates:
+            combined_md = markdown_parser.sort_by_date(combined_md)
 
         parsed = markdown_parser.parse(combined_md)
+
+        # Resolve inline images; exclude matched ones from the gallery section
+        content_html, matched_ids = self._process_inline_images(
+            parsed.html, for_pdf=for_pdf, with_caption=with_caption
+        )
+        variables.images = self._load_images(image_ids, exclude_ids=matched_ids)
 
         # Render template
         return template_engine.render_report(
             template_name=template_name,
-            content=parsed.html,
+            content=content_html,
             toc=parsed.toc,
             variables=variables,
         )
@@ -180,6 +260,8 @@ class ReportService:
         css_files: Optional[List[str]] = None,
         variables: Optional[ReportVariables] = None,
         combine_mode: CombineMode = CombineMode.SEQUENTIAL,
+        sort_dates: bool = True,
+        with_caption: bool = False,
     ) -> bytes:
         """Generate PDF preview as bytes without saving to file."""
         if css_files is None:
@@ -188,16 +270,20 @@ class ReportService:
         if image_ids is None:
             image_ids = []
 
+        # PDF needs absolute image paths, so for_pdf=True
         html_content = self.generate_preview_html(
             file_ids=file_ids,
             image_ids=image_ids,
             template_name=template_name,
             variables=variables,
             combine_mode=combine_mode,
+            sort_dates=sort_dates,
+            with_caption=with_caption,
+            for_pdf=True,
         )
 
-        # Use base_url for resolving images
-        base_url = str(settings.base_dir.absolute())
+        # Use base_url for resolving images (file:// URI works on all OSes)
+        base_url = settings.base_dir.absolute().as_uri() + "/"
 
         return pdf_generator.generate_bytes(
             html_content=html_content,

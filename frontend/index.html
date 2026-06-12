@@ -378,6 +378,46 @@
             width: auto;
         }
 
+        /* Report mode radio */
+        .mode-options {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .mode-option {
+            flex: 1 1 180px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+            transition: border-color 0.15s, background-color 0.15s;
+        }
+
+        .mode-option:hover {
+            border-color: #99c2eb;
+            background-color: #f7fbff;
+        }
+
+        .mode-option:has(input:checked) {
+            border-color: #0066cc;
+            background-color: #f0f7ff;
+            color: #0066cc;
+        }
+
+        .mode-option input {
+            width: 20px;
+            height: 20px;
+            accent-color: #0066cc;
+            cursor: pointer;
+        }
+
         /* Preview Area */
         .preview-area {
             min-height: 400px;
@@ -574,62 +614,83 @@
                     <h2 class="card-title">Report Configuration</h2>
 
                     <div class="form-group">
+                        <label>Mode Laporan</label>
+                        <div class="mode-options">
+                            <label class="mode-option">
+                                <input type="radio" value="weekly" x-model="config.report_mode" @change="onModeChange()">
+                                <span>Laporan Mingguan</span>
+                            </label>
+                            <label class="mode-option">
+                                <input type="radio" value="update" x-model="config.report_mode" @change="onModeChange()">
+                                <span>Laporan Update Aplikasi</span>
+                            </label>
+                        </div>
+                        <p class="textarea-hint" x-show="config.report_mode === 'update'">
+                            Judul &amp; periode diambil dari isi markdown. Upload .md + gambarnya
+                            (nama file gambar harus sama dengan yang dirujuk di markdown).
+                        </p>
+                    </div>
+
+                    <div class="form-group">
                         <label>Report Title</label>
-                        <input type="text" x-model="config.report_title" placeholder="Weekly Work Report">
+                        <input type="text" x-model="config.report_title" placeholder="Laporan Logbook Mingguan">
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Tanggal Mulai</label>
-                            <input type="date" x-model="config.start_date">
+                    <!-- Field khusus mode Laporan Mingguan -->
+                    <div x-show="config.report_mode === 'weekly'">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tanggal Mulai</label>
+                                <input type="date" x-model="config.start_date">
+                            </div>
+                            <div class="form-group">
+                                <label>Tanggal Selesai</label>
+                                <input type="date" x-model="config.end_date">
+                            </div>
                         </div>
+
                         <div class="form-group">
-                            <label>Tanggal Selesai</label>
-                            <input type="date" x-model="config.end_date">
+                            <label>Combine Mode</label>
+                            <select x-model="config.combine_mode">
+                                <option value="sequential">Sequential</option>
+                                <option value="sectioned">Sectioned</option>
+                                <option value="chaptered">Chaptered</option>
+                            </select>
                         </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label>Combine Mode</label>
-                        <select x-model="config.combine_mode">
-                            <option value="sequential">Sequential</option>
-                            <option value="sectioned">Sectioned</option>
-                            <option value="chaptered">Chaptered</option>
-                        </select>
-                    </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Author Name</label>
+                                <input type="text" x-model="config.author_name" placeholder="Your Name">
+                            </div>
+                            <div class="form-group">
+                                <label>Department</label>
+                                <input type="text" x-model="config.department" placeholder="Engineering">
+                            </div>
+                        </div>
 
-                    <div class="form-row">
                         <div class="form-group">
-                            <label>Author Name</label>
-                            <input type="text" x-model="config.author_name" placeholder="Your Name">
+                            <label>Author Email</label>
+                            <input type="email" x-model="config.author_email" placeholder="email@example.com">
                         </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="showToc" x-model="config.show_toc">
+                            <label for="showToc">Show Table of Contents</label>
+                        </div>
+
                         <div class="form-group">
-                            <label>Department</label>
-                            <input type="text" x-model="config.department" placeholder="Engineering">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Author Email</label>
-                        <input type="email" x-model="config.author_email" placeholder="email@example.com">
-                    </div>
-
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="showToc" x-model="config.show_toc">
-                        <label for="showToc">Show Table of Contents</label>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Rencana Kerja Minggu Depan (Optional)</label>
-                        <textarea
-                            x-model="config.next_week_plan"
-                            placeholder="Tuliskan rencana kerja untuk minggu depan...
+                            <label>Rencana Kerja Minggu Depan (Optional)</label>
+                            <textarea
+                                x-model="config.next_week_plan"
+                                placeholder="Tuliskan rencana kerja untuk minggu depan...
 
 Contoh:
 - Melanjutkan development fitur X
 - Code review untuk PR #123
 - Meeting dengan tim untuk sprint planning"></textarea>
-                        <p class="textarea-hint">Gunakan format Markdown: gunakan "-" untuk bullet list</p>
+                            <p class="textarea-hint">Gunakan format Markdown: gunakan "-" untuk bullet list</p>
+                        </div>
                     </div>
 
                     <div class="actions">
@@ -670,7 +731,8 @@ Contoh:
                 templates: [],
                 styles: [],
                 config: {
-                    report_title: 'Weekly Work Report',
+                    report_mode: 'weekly',
+                    report_title: 'Laporan Logbook Mingguan',
                     start_date: new Date().toISOString().split('T')[0],
                     end_date: new Date().toISOString().split('T')[0],
                     author_name: '',
@@ -786,6 +848,8 @@ Contoh:
                 async handleFileSelect(event) {
                     const files = event.target.files;
                     await this.uploadFiles(files);
+                    // Reset input so selecting the same file again re-triggers change
+                    event.target.value = '';
                 },
 
                 async handleDrop(event) {
@@ -797,6 +861,8 @@ Contoh:
                 async handleImageSelect(event) {
                     const files = event.target.files;
                     await this.uploadImages(files);
+                    // Reset input so selecting the same file again re-triggers change
+                    event.target.value = '';
                 },
 
                 async handleImageDrop(event) {
@@ -961,12 +1027,23 @@ Contoh:
                     this.loading = false;
                 },
 
+                onModeChange() {
+                    // Swap to the new mode's default title, unless the user typed a custom one
+                    const defaults = {
+                        weekly: 'Laporan Logbook Mingguan',
+                        update: 'Laporan Update Aplikasi'
+                    };
+                    const current = (this.config.report_title || '').trim();
+                    if (!current || Object.values(defaults).includes(current)) {
+                        this.config.report_title = defaults[this.config.report_mode];
+                    }
+                },
+
                 getRequestPayload() {
                     return {
                         file_ids: this.files.map(f => f.file_id),
                         image_ids: this.images.map(i => i.image_id),
-                        template_name: this.config.template_name,
-                        css_files: this.config.css_files,
+                        report_mode: this.config.report_mode,
                         variables: {
                             start_date: this.config.start_date,
                             end_date: this.config.end_date,

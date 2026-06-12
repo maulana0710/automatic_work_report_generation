@@ -153,7 +153,8 @@ class MarkdownParser:
         Extract sections from markdown based on date headers.
         Returns list of (date, header_line, section_content) tuples.
         """
-        lines = content.split('\n')
+        # Normalize Windows/old-Mac line endings so header detection is reliable
+        lines = content.replace('\r\n', '\n').replace('\r', '\n').split('\n')
         sections = []
         current_header = None
         current_date = None
