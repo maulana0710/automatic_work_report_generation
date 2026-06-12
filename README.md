@@ -2,6 +2,8 @@
 
 Aplikasi web untuk menghasilkan laporan pekerjaan mingguan dalam format PDF dari file Markdown, dengan dukungan AI Google Gemini untuk memproses git log menjadi laporan kerja profesional.
 
+![Tampilan Weekly Report Generator](docs/images/screenshot.png)
+
 ## Fitur
 
 - **Upload Markdown** - Drag & drop atau pilih file .md
