@@ -45,6 +45,53 @@ Aplikasi web untuk menghasilkan laporan pekerjaan mingguan dalam format PDF dari
 
 ---
 
+### Instalasi dengan Docker (Direkomendasikan)
+
+Cara paling cepat dan portabel. Semua dependency (Python + library native WeasyPrint)
+sudah dipaketkan di dalam image, jadi **tidak perlu install Python, Homebrew/Pango, atau
+GTK3 secara manual.**
+
+**Prasyarat:** [Docker](https://docs.docker.com/get-docker/) + Docker Compose (sudah termasuk
+di Docker Desktop). `make` opsional — di macOS sudah tersedia, di Windows bisa lewat
+WSL/Git Bash atau jalankan perintah `docker compose` langsung.
+
+#### Pakai Make (paling singkat)
+
+```bash
+make setup       # buat .env dari .env.example (lalu edit & isi GEMINI_API_KEY bila perlu)
+make up-build    # build image + jalankan di http://localhost:8000
+```
+
+Perintah lain yang tersedia (jalankan `make` untuk daftar lengkap):
+
+| Perintah | Fungsi |
+|----------|--------|
+| `make up` | Jalankan app (pakai image yang sudah ada) |
+| `make up-build` | Build ulang lalu jalankan |
+| `make down` | Hentikan & hapus container |
+| `make restart` | Restart app |
+| `make logs` | Lihat log aplikasi (follow) |
+| `make shell` | Masuk ke shell di dalam container |
+| `make rebuild` | Build ulang tanpa cache lalu jalankan |
+| `make clean` | Hentikan container + hapus image & volume |
+
+#### Tanpa Make (langsung docker compose)
+
+```bash
+cp .env.example .env          # lalu edit & isi GEMINI_API_KEY bila perlu
+docker compose up -d --build  # jalankan di http://localhost:8000
+docker compose logs -f        # lihat log
+docker compose down           # hentikan
+```
+
+> **Catatan:**
+> - Folder `uploads/` dan `output/` di-mount sebagai volume, jadi file hasil generate
+>   tetap tersimpan di host meski container di-restart.
+> - Image **tidak** memakai `--reload` (mode production). Untuk fitur AI, pastikan
+>   `GEMINI_API_KEY` terisi di `.env` — app tetap jalan tanpa key, hanya fitur AI yang non-aktif.
+
+---
+
 ### Instalasi di macOS
 
 1. **Masuk ke folder project**
@@ -322,6 +369,10 @@ automatic_work_report_generation/
 │   └── index.html                 # Web UI
 ├── uploads/                       # Uploaded files (temp)
 ├── output/                        # Generated PDFs
+├── Dockerfile                     # Image build (Python + native deps WeasyPrint)
+├── docker-compose.yml             # Service config + volume mapping
+├── .dockerignore                  # File yang diabaikan saat build image
+├── Makefile                       # Shortcut perintah Docker (make up, down, dst)
 ├── .env.example                   # Environment template
 ├── requirements.txt
 ├── .gitignore
