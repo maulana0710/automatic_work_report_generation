@@ -1,6 +1,7 @@
 import uuid
 import aiofiles
 import re
+import urllib.parse
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -60,6 +61,45 @@ class ImageManager:
             # Fallback to original filename without extension
             return Path(filename).stem.title()
 
+    def _sanitize_stem(self, stem: str) -> str:
+        """
+        Sanitize a filename stem the same way uploaded files are stored on disk:
+        keep alphanumerics/underscores/hyphens, collapse repeats, strip edges.
+        Example: '1. Tampilan Tracking' -> '1_Tampilan_Tracking'
+        """
+        safe = re.sub(r'[^\w\-]', '_', stem)
+        safe = re.sub(r'_+', '_', safe).strip('_')
+        return safe or 'image'
+
+    def resolve_by_filename(self, src: str) -> Optional[Path]:
+        """
+        Resolve a markdown image reference (e.g. 'img/juni/foo%20bar.png') to an
+        uploaded file on disk, matching by the sanitized basename used at upload time.
+        Returns the Path or None if no matching upload exists.
+        """
+        # Take the basename and URL-decode (handle %20 etc.)
+        basename = Path(urllib.parse.unquote(src)).name
+        if not basename:
+            return None
+
+        ext = Path(basename).suffix.lower()
+        if ext not in self.allowed_extensions:
+            return None
+
+        sanitized = self._sanitize_stem(Path(basename).stem)
+
+        # Exact match first
+        exact = self.images_dir / f"{sanitized}{ext}"
+        if exact.exists():
+            return exact
+
+        # Fallback: name collided on upload and got a '_<uuid>' suffix
+        for path in self.images_dir.iterdir():
+            if path.suffix.lower() == ext and path.stem.startswith(f"{sanitized}_"):
+                return path
+
+        return None
+
     def _validate_image(self, file: UploadFile) -> None:
         """Validate image type."""
         if not file.filename:
@@ -76,10 +116,20 @@ class ImageManager:
         """Save an uploaded image with validation."""
         self._validate_image(file)
 
-        image_id = str(uuid.uuid4())
         ext = Path(file.filename).suffix.lower()
-        new_filename = f"{image_id}{ext}"
+
+        # Sanitize original filename: keep alphanumerics, hyphens, underscores
+        safe_stem = self._sanitize_stem(Path(file.filename).stem)
+
+        # Handle filename conflicts by appending short uuid suffix
+        new_filename = f"{safe_stem}{ext}"
         file_path = self.images_dir / new_filename
+        if file_path.exists():
+            short_id = str(uuid.uuid4())[:8]
+            new_filename = f"{safe_stem}_{short_id}{ext}"
+            file_path = self.images_dir / new_filename
+
+        image_id = Path(new_filename).stem
 
         content = await file.read()
 

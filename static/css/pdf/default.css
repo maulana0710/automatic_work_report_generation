@@ -4,7 +4,7 @@
     margin: 2cm 2.5cm;
 
     @top-center {
-        content: "Weekly Work Report";
+        content: "Laporan Logbook Mingguan";
         font-size: 9pt;
         color: #666;
         font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -267,6 +267,15 @@ hr {
 /* Images */
 img {
     max-width: 100%;
+    height: auto;
+}
+
+/* Inline images inside the report body (referenced in markdown) */
+.report-content img {
+    display: block;
+    margin: 1em auto;
+    max-width: 100%;
+    max-height: 12cm;
     height: auto;
 }
 

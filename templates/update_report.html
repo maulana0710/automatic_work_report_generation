@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }}</title>
+</head>
+<body>
+    <div class="report-container">
+        <!-- App update report: title, "Periode:" and images all come from the
+             markdown content itself (see examples/laporan_update.md). -->
+        <main class="report-content">
+            {{ content | safe }}
+        </main>
+    </div>
+</body>
+</html>
